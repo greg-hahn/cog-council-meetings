@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Council Meetings — {{ slug | title }}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #1a1a2e;
+            line-height: 1.6;
+        }
+        .container { max-width: 800px; margin: 0 auto; padding: 1rem; }
+
+        header {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 1.5rem 0;
+        }
+        header h1 { font-size: 1.5rem; font-weight: 600; }
+        header .subtitle { color: #a0aec0; font-size: 0.9rem; margin-top: 0.25rem; }
+
+        /* Now/Next banner */
+        .now-next {
+            background: #2d3748;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .now-next .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a0aec0;
+            margin-bottom: 0.25rem;
+        }
+        .now-next .now { color: #68d391; font-weight: 600; }
+        .now-next .next { color: #63b3ed; margin-top: 0.75rem; }
+        .now-next .item-title { font-size: 1rem; }
+        .now-next .no-meeting { color: #a0aec0; font-style: italic; }
+
+        /* Meeting card */
+        .meeting-card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+        .meeting-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .meeting-header h2 { font-size: 1.2rem; }
+        .meeting-meta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: #718096;
+        }
+        .meeting-meta a { color: #3182ce; text-decoration: none; }
+        .meeting-meta a:hover { text-decoration: underline; }
+
+        /* Agenda items */
+        .agenda-list { list-style: none; }
+        .agenda-item {
+            padding: 0.75rem 1.25rem;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .agenda-item:last-child { border-bottom: none; }
+        .item-header {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        .item-number {
+            font-weight: 700;
+            color: #2d3748;
+            min-width: 2.5rem;
+            font-size: 0.9rem;
+        }
+        .item-title-text { font-weight: 500; }
+        .item-summary {
+            margin-top: 0.25rem;
+            font-size: 0.85rem;
+            color: #4a5568;
+            padding-left: 3rem;
+        }
+        .item-tags {
+            margin-top: 0.25rem;
+            padding-left: 3rem;
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .tag {
+            background: #ebf4ff;
+            color: #2b6cb0;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 500;
+        }
+
+        .section-label {
+            background: #edf2f7;
+            padding: 0.4rem 1.25rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #718096;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #a0aec0;
+        }
+
+        .loading { text-align: center; padding: 2rem; color: #a0aec0; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Council Meetings</h1>
+            <div class="subtitle">{{ slug | title }} — Today's Agenda</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="now-next" class="now-next">
+            <div class="loading">Loading...</div>
+        </div>
+
+        <div id="meetings">
+            <div class="loading">Loading today's meetings...</div>
+        </div>
+    </div>
+
+    <script>
+        const SLUG = "{{ slug }}";
+        const API_BASE = `/api/${SLUG}/meetings`;
+
+        function escapeHtml(text) {
+            const d = document.createElement("div");
+            d.textContent = text || "";
+            return d.innerHTML;
+        }
+
+        function formatTime(isoStr) {
+            if (!isoStr) return "";
+            const d = new Date(isoStr);
+            return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        }
+
+        function renderTags(tags) {
+            if (!tags || tags.length === 0) return "";
+            return tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+        }
+
+        // ---- Now / Next ----
+        async function loadNowNext() {
+            const el = document.getElementById("now-next");
+            try {
+                const resp = await fetch(`${API_BASE}/now-next`);
+                const data = await resp.json();
+
+                if (!data.meeting) {
+                    el.innerHTML = `<div class="no-meeting">No meetings scheduled for today.</div>`;
+                    return;
+                }
+
+                let html = "";
+                if (data.current_item) {
+                    html += `
+                        <div class="now">
+                            <div class="label">Now discussing</div>
+                            <div class="item-title">${escapeHtml(data.current_item.item_number)} — ${escapeHtml(data.current_item.title)}</div>
+                        </div>`;
+                }
+                if (data.next_item) {
+                    html += `
+                        <div class="next">
+                            <div class="label">Up next</div>
+                            <div class="item-title">${escapeHtml(data.next_item.item_number)} — ${escapeHtml(data.next_item.title)}</div>
+                        </div>`;
+                }
+                if (!data.current_item && !data.next_item) {
+                    html = `<div class="no-meeting">Meeting: ${escapeHtml(data.meeting.title)} — No agenda items loaded.</div>`;
+                }
+                el.innerHTML = html;
+            } catch (err) {
+                el.innerHTML = `<div class="no-meeting">Could not load now/next data.</div>`;
+            }
+        }
+
+        // ---- Today's meetings ----
+        async function loadToday() {
+            const el = document.getElementById("meetings");
+            try {
+                const resp = await fetch(`${API_BASE}/today`);
+                const data = await resp.json();
+
+                if (!data.meetings || data.meetings.length === 0) {
+                    el.innerHTML = `<div class="empty-state">No meetings today (${data.date}).</div>`;
+                    return;
+                }
+
+                el.innerHTML = data.meetings.map(meeting => {
+                    const metaParts = [];
+                    if (meeting.start_datetime) {
+                        metaParts.push(`<span>${formatTime(meeting.start_datetime)}</span>`);
+                    }
+                    if (meeting.location) {
+                        metaParts.push(`<span>${escapeHtml(meeting.location)}</span>`);
+                    }
+                    if (meeting.agenda_url) {
+                        metaParts.push(`<a href="${escapeHtml(meeting.agenda_url)}" target="_blank">Full Agenda</a>`);
+                    }
+                    if (meeting.livestream_url) {
+                        metaParts.push(`<a href="${escapeHtml(meeting.livestream_url)}" target="_blank">Watch Live</a>`);
+                    }
+
+                    let currentSection = null;
+                    const itemsHtml = (meeting.items || []).map(item => {
+                        let sectionHeader = "";
+                        if (item.section !== currentSection) {
+                            currentSection = item.section;
+                            const sectionLabel = (item.section || "other").replace(/_/g, " ");
+                            sectionHeader = `<div class="section-label">${escapeHtml(sectionLabel)}</div>`;
+                        }
+                        return `${sectionHeader}
+                            <li class="agenda-item">
+                                <div class="item-header">
+                                    <span class="item-number">${escapeHtml(item.item_number)}</span>
+                                    <span class="item-title-text">${escapeHtml(item.title)}</span>
+                                </div>
+                                ${item.summary ? `<div class="item-summary">${escapeHtml(item.summary)}</div>` : ""}
+                                <div class="item-tags">${renderTags(item.tags)}</div>
+                            </li>`;
+                    }).join("");
+
+                    return `
+                        <div class="meeting-card">
+                            <div class="meeting-header">
+                                <h2>${escapeHtml(meeting.title)}</h2>
+                                <div class="meeting-meta">${metaParts.join("")}</div>
+                            </div>
+                            <ul class="agenda-list">${itemsHtml}</ul>
+                        </div>`;
+                }).join("");
+            } catch (err) {
+                el.innerHTML = `<div class="empty-state">Could not load meetings.</div>`;
+            }
+        }
+
+        // Load both on page init
+        loadNowNext();
+        loadToday();
+
+        // Refresh now/next every 60 seconds
+        setInterval(loadNowNext, 60_000);
+    </script>
+</body>
+</html>
