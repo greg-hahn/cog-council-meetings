@@ -15,7 +15,12 @@ from dateutil import parser as dateutil_parser
 from pytz import timezone as pytz_timezone
 from sqlalchemy.orm import Session
 
-from backend.config import GUELPH_ESCRIBE_BASE, GUELPH_LIVESTREAM_URL
+from backend.config import (
+    GUELPH_CALENDAR_URL,
+    GUELPH_ESCRIBE_BASE,
+    GUELPH_LIVESTREAM_URL,
+    GUELPH_MEETING_TYPES,
+)
 from backend.db.models import (
     AgendaItem,
     AgendaItemStatus,
@@ -297,7 +302,7 @@ def ingest_meeting_from_url(
 
     offset_minutes = 0
     for idx, item_data in enumerate(raw_items):
-        summary, tags = summarize_and_tag(item_data["raw_text"])
+        summary, tags = summarize_and_tag(item_data["raw_text"], item_data["title"])
 
         # Estimate start offset: ~5 min for procedural items, ~15 for substantive
         section = item_data["section"]
@@ -352,27 +357,99 @@ def ingest_meeting_from_url(
     return meeting
 
 
-def discover_upcoming_meeting_urls() -> list[dict]:
+def _fetch_calendar_ajax(year: int, meeting_type: str) -> list[dict]:
+    """POST to eScribe AJAX endpoint and return list of meeting dicts."""
+    url = f"{GUELPH_CALENDAR_URL}?Year={year}"
+    # The eScribe JS sends a non-standard JSON body with single quotes
+    body = f"{{type: '{meeting_type}'}}"
+
+    with httpx.Client(
+        timeout=HTTP_TIMEOUT,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/json; charset=utf-8",
+            "X-Requested-With": "XMLHttpRequest",
+        },
+        verify=False,
+    ) as client:
+        resp = client.post(url, content=body)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("d", [])
+
+
+def discover_new_meetings(
+    db: Session,
+    municipality_slug: str = "guelph",
+    year: int | None = None,
+) -> list[dict]:
     """
-    Discover upcoming Guelph council meeting URLs from the eScribe portal.
-
-    The eScribe calendar page loads meetings via AJAX, so we POST to the
-    MeetingsContent.aspx/PastMeetings endpoint. For upcoming meetings
-    the panel-body is initially empty — they are rendered client-side.
-
-    As a practical fallback, this function tries the AJAX endpoint and,
-    if that fails, returns a hardcoded set or empty list.
+    Query the eScribe AJAX calendar for all meeting types, compare against
+    already-ingested external_ids, and return new meetings to ingest.
 
     Returns:
-        List of dicts with keys: url, title (if available)
+        List of dicts with keys: id (GUID), url, type, date
     """
-    # TODO: The eScribe calendar page loads meetings via client-side JS.
-    # A more robust approach would be to use a headless browser or to
-    # discover an API endpoint that returns upcoming meetings as JSON.
-    # For now, this is a placeholder that logs a warning.
-    logger.warning(
-        "discover_upcoming_meeting_urls is a stub — eScribe loads meetings "
-        "via client-side JS. Pass meeting URLs directly to ingest_meeting_from_url "
-        "or implement headless browser scraping."
+    if year is None:
+        year = datetime.now().year
+
+    muni = db.query(Municipality).filter_by(slug=municipality_slug).first()
+    if not muni:
+        raise ValueError(f"Municipality '{municipality_slug}' not found")
+
+    existing_ids = set(
+        row[0]
+        for row in db.query(Meeting.external_id)
+        .filter(Meeting.municipality_id == muni.id)
+        .all()
     )
-    return []
+
+    new_meetings: list[dict] = []
+    for meeting_type in GUELPH_MEETING_TYPES:
+        try:
+            meetings_data = _fetch_calendar_ajax(year, meeting_type)
+            for m in meetings_data:
+                guid = m.get("Id", "")
+                if not guid or guid in existing_ids:
+                    continue
+                if m.get("Cancelled") or not m.get("HasAgenda"):
+                    continue
+                url = (
+                    f"{GUELPH_ESCRIBE_BASE}/Meeting.aspx"
+                    f"?Id={guid}&Agenda=Agenda&lang=English"
+                )
+                new_meetings.append({
+                    "id": guid,
+                    "url": url,
+                    "type": m.get("MeetingType", meeting_type),
+                    "date": m.get("DateMedium", ""),
+                })
+        except Exception:
+            logger.exception(
+                "Failed to fetch calendar for type=%s year=%s",
+                meeting_type,
+                year,
+            )
+
+    return new_meetings
+
+
+def discover_and_ingest(
+    db: Session,
+    municipality_slug: str = "guelph",
+    year: int | None = None,
+) -> list[Meeting]:
+    """Discover new meetings and ingest them. Returns list of newly ingested meetings."""
+    new_meetings = discover_new_meetings(db, municipality_slug, year)
+    logger.info("Discovered %d new meeting(s) to ingest", len(new_meetings))
+
+    ingested: list[Meeting] = []
+    for m in new_meetings:
+        try:
+            meeting = ingest_meeting_from_url(m["url"], municipality_slug, db)
+            ingested.append(meeting)
+            logger.info("Ingested new meeting: %s (%s)", meeting.title, m["date"])
+        except Exception:
+            logger.exception("Failed to ingest meeting %s", m["url"])
+
+    return ingested

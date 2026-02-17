@@ -22,6 +22,13 @@
         header h1 { font-size: 1.5rem; font-weight: 600; }
         header .subtitle { color: #a0aec0; font-size: 0.9rem; margin-top: 0.25rem; }
 
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin: 1.5rem 0 0.5rem;
+        }
+
         /* Now/Next banner */
         .now-next {
             background: #2d3748;
@@ -42,26 +49,134 @@
         .now-next .item-title { font-size: 1rem; }
         .now-next .no-meeting { color: #a0aec0; font-style: italic; }
 
-        /* Meeting card */
-        .meeting-card {
+        /* Search area */
+        .search-area {
+            margin: 1rem 0 0.5rem;
+        }
+        .search-input {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .search-input:focus {
+            border-color: #3182ce;
+        }
+        .tag-chips {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+        .tag-chip {
+            background: #edf2f7;
+            color: #4a5568;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .tag-chip:hover {
+            background: #e2e8f0;
+        }
+        .tag-chip.active {
+            background: #ebf4ff;
+            color: #2b6cb0;
+            border-color: #3182ce;
+        }
+        .tag-chip .count {
+            color: #a0aec0;
+            margin-left: 0.25rem;
+        }
+        .search-clear {
+            display: inline-block;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: #3182ce;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0;
+            font-family: inherit;
+        }
+        .search-clear:hover { text-decoration: underline; }
+
+        /* Meeting list */
+        .meeting-list { list-style: none; }
+        .meeting-list-item {
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin: 1rem 0;
-            overflow: hidden;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            transition: box-shadow 0.15s;
         }
-        .meeting-header {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid #e2e8f0;
+        .meeting-list-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-        .meeting-header h2 { font-size: 1.2rem; }
+        .meeting-list-item.active {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .meeting-list-btn {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.85rem 1.25rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            font: inherit;
+            color: inherit;
+        }
+        .meeting-list-btn:focus-visible {
+            outline: 2px solid #3182ce;
+            outline-offset: -2px;
+            border-radius: 8px;
+        }
+        .meeting-list-title {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .meeting-list-date {
+            font-size: 0.85rem;
+            color: #718096;
+        }
+        .meeting-list-chevron {
+            font-size: 0.85rem;
+            color: #a0aec0;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+        .meeting-list-item.active .meeting-list-chevron {
+            transform: rotate(90deg);
+        }
+
+        /* Meeting detail (agenda) — hidden by default */
+        .meeting-detail {
+            display: none;
+            border-top: 1px solid #e2e8f0;
+        }
+        .meeting-list-item.active .meeting-detail {
+            display: block;
+        }
         .meeting-meta {
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
-            margin-top: 0.5rem;
+            padding: 0.75rem 1.25rem;
             font-size: 0.85rem;
             color: #718096;
+            border-bottom: 1px solid #edf2f7;
         }
         .meeting-meta a { color: #3182ce; text-decoration: none; }
         .meeting-meta a:hover { text-decoration: underline; }
@@ -73,6 +188,12 @@
             border-bottom: 1px solid #edf2f7;
         }
         .agenda-item:last-child { border-bottom: none; }
+        .agenda-item-clickable {
+            cursor: pointer;
+        }
+        .agenda-item-clickable:hover {
+            background: #f7fafc;
+        }
         .item-header {
             display: flex;
             align-items: baseline;
@@ -85,6 +206,12 @@
             font-size: 0.9rem;
         }
         .item-title-text { font-weight: 500; }
+        .item-expand-hint {
+            color: #a0aec0;
+            font-size: 0.75rem;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
         .item-summary {
             margin-top: 0.25rem;
             font-size: 0.85rem;
@@ -107,6 +234,43 @@
             font-weight: 500;
         }
 
+        /* Item detail panel (expanded) */
+        .item-detail {
+            display: none;
+            margin-top: 0.5rem;
+            padding: 0.75rem 1rem;
+            margin-left: 3rem;
+            background: #f7fafc;
+            border-left: 3px solid #3182ce;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.85rem;
+            color: #2d3748;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .item-detail.visible {
+            display: block;
+        }
+        .item-detail .detail-recommendation {
+            background: #fffff0;
+            border-left: 3px solid #ecc94b;
+            padding: 0.5rem 0.75rem;
+            margin: 0.5rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .item-detail .detail-label {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #718096;
+            margin-bottom: 0.25rem;
+        }
+        .item-detail .detail-loading {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
         .section-label {
             background: #edf2f7;
             padding: 0.4rem 1.25rem;
@@ -124,13 +288,40 @@
         }
 
         .loading { text-align: center; padding: 2rem; color: #a0aec0; }
+
+        /* Search results */
+        .search-result {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 0.85rem 1.25rem;
+            margin: 0.5rem 0;
+        }
+        .search-result .result-meeting {
+            font-size: 0.75rem;
+            color: #718096;
+            margin-bottom: 0.25rem;
+        }
+        .search-result .result-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .search-result .result-summary {
+            font-size: 0.85rem;
+            color: #4a5568;
+            margin-top: 0.15rem;
+        }
+        .search-result .item-tags {
+            padding-left: 0;
+            margin-top: 0.35rem;
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="container">
             <h1>Council Meetings</h1>
-            <div class="subtitle">{{ slug | title }} — Today's Agenda</div>
+            <div class="subtitle">{{ slug | title }}</div>
         </div>
     </header>
 
@@ -139,8 +330,16 @@
             <div class="loading">Loading...</div>
         </div>
 
+        <div class="search-area">
+            <input type="text" id="search-input" class="search-input"
+                   placeholder="Search agenda items..." autocomplete="off" />
+            <div id="tag-chips" class="tag-chips"></div>
+        </div>
+
+        <div id="search-results" style="display:none;"></div>
+
         <div id="meetings">
-            <div class="loading">Loading today's meetings...</div>
+            <div class="loading">Loading meetings...</div>
         </div>
     </div>
 
@@ -148,10 +347,19 @@
         const SLUG = "{{ slug }}";
         const API_BASE = `/api/${SLUG}/meetings`;
 
+        let activeTag = null;
+        let searchTimeout = null;
+
         function escapeHtml(text) {
             const d = document.createElement("div");
             d.textContent = text || "";
             return d.innerHTML;
+        }
+
+        function formatDate(isoStr) {
+            if (!isoStr) return "";
+            const d = new Date(isoStr);
+            return d.toLocaleDateString([], { weekday: "short", year: "numeric", month: "short", day: "numeric" });
         }
 
         function formatTime(isoStr) {
@@ -201,69 +409,279 @@
             }
         }
 
-        // ---- Today's meetings ----
-        async function loadToday() {
+        // ---- Item detail expansion ----
+        async function toggleItemDetail(itemId, detailEl) {
+            if (detailEl.classList.contains("visible")) {
+                detailEl.classList.remove("visible");
+                return;
+            }
+
+            if (detailEl.dataset.loaded) {
+                detailEl.classList.add("visible");
+                return;
+            }
+
+            detailEl.innerHTML = `<div class="detail-loading">Loading details...</div>`;
+            detailEl.classList.add("visible");
+
+            try {
+                const resp = await fetch(`/api/${SLUG}/items/${itemId}`);
+                const data = await resp.json();
+                detailEl.innerHTML = formatItemDetail(data.raw_text);
+                detailEl.dataset.loaded = "1";
+            } catch (err) {
+                detailEl.innerHTML = `<div class="detail-loading">Could not load details.</div>`;
+            }
+        }
+
+        function formatItemDetail(rawText) {
+            if (!rawText) return `<em>No additional details available.</em>`;
+
+            const lines = rawText.split("\n");
+            let html = "";
+            let inRecommendation = false;
+            let recLines = [];
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                if (trimmed.startsWith("Recommendation:")) {
+                    if (recLines.length > 0) {
+                        html += renderRecommendation(recLines);
+                        recLines = [];
+                    }
+                    inRecommendation = true;
+                    recLines.push(trimmed.substring("Recommendation:".length).trim());
+                } else if (inRecommendation) {
+                    // Check if this looks like a new section
+                    if (/^\d+(\.\d+)?\s/.test(trimmed)) {
+                        html += renderRecommendation(recLines);
+                        recLines = [];
+                        inRecommendation = false;
+                        html += `<p>${escapeHtml(trimmed)}</p>`;
+                    } else {
+                        recLines.push(trimmed);
+                    }
+                } else {
+                    html += `<p>${escapeHtml(trimmed)}</p>`;
+                }
+            }
+
+            if (recLines.length > 0) {
+                html += renderRecommendation(recLines);
+            }
+
+            return html || `<em>No additional details available.</em>`;
+        }
+
+        function renderRecommendation(lines) {
+            return `<div class="detail-recommendation">
+                <div class="detail-label">Recommendation</div>
+                ${lines.map(l => `<p>${escapeHtml(l)}</p>`).join("")}
+            </div>`;
+        }
+
+        // ---- Agenda items ----
+        function renderAgendaItems(items) {
+            let currentSection = null;
+            return (items || []).map(item => {
+                let sectionHeader = "";
+                if (item.section !== currentSection) {
+                    currentSection = item.section;
+                    const sectionLabel = (item.section || "other").replace(/_/g, " ");
+                    sectionHeader = `<div class="section-label">${escapeHtml(sectionLabel)}</div>`;
+                }
+                return `${sectionHeader}
+                    <li class="agenda-item agenda-item-clickable"
+                        onclick="toggleItemDetail(${item.id}, this.querySelector('.item-detail'))">
+                        <div class="item-header">
+                            <span class="item-number">${escapeHtml(item.item_number)}</span>
+                            <span class="item-title-text">${escapeHtml(item.title)}</span>
+                            <span class="item-expand-hint">&#9662;</span>
+                        </div>
+                        ${item.summary ? `<div class="item-summary">${escapeHtml(item.summary)}</div>` : ""}
+                        <div class="item-tags">${renderTags(item.tags)}</div>
+                        <div class="item-detail"></div>
+                    </li>`;
+            }).join("");
+        }
+
+        // ---- Meeting list ----
+        function renderMeetingList(meetings) {
+            return `<ul class="meeting-list">` + meetings.map((meeting, i) => {
+                const metaParts = [];
+                if (meeting.start_datetime) {
+                    metaParts.push(`<span>${formatTime(meeting.start_datetime)}</span>`);
+                }
+                if (meeting.location) {
+                    metaParts.push(`<span>${escapeHtml(meeting.location)}</span>`);
+                }
+                if (meeting.agenda_url) {
+                    metaParts.push(`<a href="${escapeHtml(meeting.agenda_url)}" target="_blank" onclick="event.stopPropagation()">Full Agenda</a>`);
+                }
+                if (meeting.livestream_url) {
+                    metaParts.push(`<a href="${escapeHtml(meeting.livestream_url)}" target="_blank" onclick="event.stopPropagation()">Watch Live</a>`);
+                }
+
+                const itemCount = (meeting.items || []).length;
+
+                return `
+                    <li class="meeting-list-item" data-index="${i}">
+                        <button class="meeting-list-btn" onclick="toggleMeeting(this.parentElement)">
+                            <div>
+                                <div class="meeting-list-title">${escapeHtml(meeting.title)}</div>
+                                <div class="meeting-list-date">${formatDate(meeting.start_datetime)}${itemCount ? ` — ${itemCount} agenda items` : ""}</div>
+                            </div>
+                            <span class="meeting-list-chevron">&#9654;</span>
+                        </button>
+                        <div class="meeting-detail">
+                            ${metaParts.length ? `<div class="meeting-meta">${metaParts.join("")}</div>` : ""}
+                            <ul class="agenda-list">${renderAgendaItems(meeting.items)}</ul>
+                        </div>
+                    </li>`;
+            }).join("") + `</ul>`;
+        }
+
+        function toggleMeeting(li) {
+            li.classList.toggle("active");
+        }
+
+        // ---- Search & Filter ----
+        async function loadTags() {
+            try {
+                const resp = await fetch(`/api/${SLUG}/tags`);
+                const data = await resp.json();
+                const el = document.getElementById("tag-chips");
+
+                el.innerHTML = data.tags.map(t =>
+                    `<button class="tag-chip" data-tag="${escapeHtml(t.name)}"
+                             onclick="toggleTagFilter('${escapeHtml(t.name)}', this)">
+                        ${escapeHtml(t.name.replace(/_/g, " "))}
+                        <span class="count">${t.count}</span>
+                    </button>`
+                ).join("");
+            } catch (err) {
+                // Silently fail — tags are optional enhancement
+            }
+        }
+
+        function toggleTagFilter(tag, chipEl) {
+            if (activeTag === tag) {
+                activeTag = null;
+                chipEl.classList.remove("active");
+            } else {
+                // Deactivate previous
+                document.querySelectorAll(".tag-chip.active").forEach(c => c.classList.remove("active"));
+                activeTag = tag;
+                chipEl.classList.add("active");
+            }
+            doSearch();
+        }
+
+        function doSearch() {
+            const q = document.getElementById("search-input").value.trim();
+            const searchResultsEl = document.getElementById("search-results");
+            const meetingsEl = document.getElementById("meetings");
+
+            if (!q && !activeTag) {
+                searchResultsEl.style.display = "none";
+                meetingsEl.style.display = "block";
+                return;
+            }
+
+            const params = new URLSearchParams();
+            if (q) params.set("q", q);
+            if (activeTag) params.set("tag", activeTag);
+            params.set("limit", "30");
+
+            searchResultsEl.style.display = "block";
+            meetingsEl.style.display = "none";
+            searchResultsEl.innerHTML = `<div class="loading">Searching...</div>`;
+
+            fetch(`${API_BASE}/search?${params}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.results || data.results.length === 0) {
+                        searchResultsEl.innerHTML = `
+                            <div class="empty-state">No results found.</div>
+                            <button class="search-clear" onclick="clearSearch()">Clear search</button>`;
+                        return;
+                    }
+
+                    searchResultsEl.innerHTML =
+                        `<div class="section-title">${data.results.length} result${data.results.length === 1 ? "" : "s"}</div>
+                         <button class="search-clear" onclick="clearSearch()">Clear search</button>` +
+                        data.results.map(r => `
+                            <div class="search-result">
+                                <div class="result-meeting">${escapeHtml(r.meeting_title)} — ${formatDate(r.meeting_date)}</div>
+                                <div class="result-title">${escapeHtml(r.item_number)} ${escapeHtml(r.title)}</div>
+                                ${r.summary ? `<div class="result-summary">${escapeHtml(r.summary)}</div>` : ""}
+                                <div class="item-tags">${renderTags(r.tags)}</div>
+                            </div>
+                        `).join("");
+                })
+                .catch(() => {
+                    searchResultsEl.innerHTML = `<div class="empty-state">Search failed.</div>`;
+                });
+        }
+
+        function clearSearch() {
+            document.getElementById("search-input").value = "";
+            activeTag = null;
+            document.querySelectorAll(".tag-chip.active").forEach(c => c.classList.remove("active"));
+            document.getElementById("search-results").style.display = "none";
+            document.getElementById("meetings").style.display = "block";
+        }
+
+        // Debounced search on input
+        document.getElementById("search-input").addEventListener("input", () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(doSearch, 300);
+        });
+
+        // ---- Load meetings: today first, fallback to recent ----
+        async function loadMeetings() {
             const el = document.getElementById("meetings");
             try {
                 const resp = await fetch(`${API_BASE}/today`);
                 const data = await resp.json();
 
-                if (!data.meetings || data.meetings.length === 0) {
-                    el.innerHTML = `<div class="empty-state">No meetings today (${data.date}).</div>`;
+                if (data.meetings && data.meetings.length > 0) {
+                    el.innerHTML = `<div class="section-title">Today's Meetings</div>`
+                        + renderMeetingList(data.meetings);
                     return;
                 }
 
-                el.innerHTML = data.meetings.map(meeting => {
-                    const metaParts = [];
-                    if (meeting.start_datetime) {
-                        metaParts.push(`<span>${formatTime(meeting.start_datetime)}</span>`);
-                    }
-                    if (meeting.location) {
-                        metaParts.push(`<span>${escapeHtml(meeting.location)}</span>`);
-                    }
-                    if (meeting.agenda_url) {
-                        metaParts.push(`<a href="${escapeHtml(meeting.agenda_url)}" target="_blank">Full Agenda</a>`);
-                    }
-                    if (meeting.livestream_url) {
-                        metaParts.push(`<a href="${escapeHtml(meeting.livestream_url)}" target="_blank">Watch Live</a>`);
-                    }
-
-                    let currentSection = null;
-                    const itemsHtml = (meeting.items || []).map(item => {
-                        let sectionHeader = "";
-                        if (item.section !== currentSection) {
-                            currentSection = item.section;
-                            const sectionLabel = (item.section || "other").replace(/_/g, " ");
-                            sectionHeader = `<div class="section-label">${escapeHtml(sectionLabel)}</div>`;
-                        }
-                        return `${sectionHeader}
-                            <li class="agenda-item">
-                                <div class="item-header">
-                                    <span class="item-number">${escapeHtml(item.item_number)}</span>
-                                    <span class="item-title-text">${escapeHtml(item.title)}</span>
-                                </div>
-                                ${item.summary ? `<div class="item-summary">${escapeHtml(item.summary)}</div>` : ""}
-                                <div class="item-tags">${renderTags(item.tags)}</div>
-                            </li>`;
-                    }).join("");
-
-                    return `
-                        <div class="meeting-card">
-                            <div class="meeting-header">
-                                <h2>${escapeHtml(meeting.title)}</h2>
-                                <div class="meeting-meta">${metaParts.join("")}</div>
-                            </div>
-                            <ul class="agenda-list">${itemsHtml}</ul>
-                        </div>`;
-                }).join("");
+                // No meetings today — load recent instead
+                await loadRecent(el, data.date);
             } catch (err) {
                 el.innerHTML = `<div class="empty-state">Could not load meetings.</div>`;
             }
         }
 
-        // Load both on page init
+        async function loadRecent(el, todayDate) {
+            try {
+                const resp = await fetch(`${API_BASE}/recent?limit=10`);
+                const data = await resp.json();
+
+                if (!data.meetings || data.meetings.length === 0) {
+                    el.innerHTML = `<div class="empty-state">No meetings found.</div>`;
+                    return;
+                }
+
+                el.innerHTML = `<div class="empty-state" style="padding-bottom:0">No meetings today (${todayDate}).</div>`
+                    + `<div class="section-title">Recent Meetings</div>`
+                    + renderMeetingList(data.meetings);
+            } catch (err) {
+                el.innerHTML = `<div class="empty-state">No meetings today.</div>`;
+            }
+        }
+
+        // Load on page init
         loadNowNext();
-        loadToday();
+        loadMeetings();
+        loadTags();
 
         // Refresh now/next every 60 seconds
         setInterval(loadNowNext, 60_000);

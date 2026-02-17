@@ -5,7 +5,8 @@
       "WebFetch(domain:guelph.ca)",
       "Bash(python -c \"import urllib.request, ssl; ctx = ssl.create_default_context\\(\\); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE; req = urllib.request.Request\\(''https://pub-guelph.escribemeetings.com/Meeting.aspx?Id=5b29247b-3757-48cf-a510-a9a979085a2e&Agenda=Agenda&lang=English'', headers={''User-Agent'': ''Mozilla/5.0''}\\); resp = urllib.request.urlopen\\(req, context=ctx\\); html = resp.read\\(\\).decode\\(''utf-8''\\); print\\(html[:8000]\\)\")",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(alembic upgrade:*)"
     ]
   }
 }

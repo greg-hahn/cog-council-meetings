@@ -34,6 +34,7 @@
 # ==========================================================================
 
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -66,10 +67,14 @@ templates = Jinja2Templates(directory="frontend")
 
 @app.on_event("startup")
 def on_startup():
-    """Seed municipality data on startup."""
+    """Seed municipality data and optionally discover new meetings on startup."""
     db = SessionLocal()
     try:
         seed_guelph(db)
+        if os.environ.get("AUTO_DISCOVER", "").lower() in ("1", "true"):
+            from backend.ingestion.guelph import discover_and_ingest
+
+            discover_and_ingest(db)
     finally:
         db.close()
 

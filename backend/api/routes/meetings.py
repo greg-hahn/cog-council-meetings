@@ -2,9 +2,14 @@
 API routes for council meeting data.
 
 Endpoints:
-  GET /api/{slug}/meetings/today     - All meetings for today
-  GET /api/{slug}/meetings/now-next  - Current + next agenda item
-  POST /admin/ingest                 - Trigger ingestion for a URL
+  GET  /api/{slug}/meetings/today      - All meetings for today
+  GET  /api/{slug}/meetings/now-next   - Current + next agenda item
+  GET  /api/{slug}/meetings/recent     - Recent meetings
+  GET  /api/{slug}/meetings/search     - Search agenda items
+  GET  /api/{slug}/tags                - All tags with counts
+  GET  /api/{slug}/items/{item_id}     - Full agenda item detail
+  POST /admin/ingest                   - Trigger ingestion for a URL
+  POST /admin/discover                 - Discover and ingest new meetings
 """
 import logging
 from datetime import datetime, time, timedelta
@@ -12,13 +17,16 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pytz import timezone as pytz_timezone
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from backend.db.models import (
     AgendaItem,
+    AgendaItemTag,
     Meeting,
     MeetingStatus,
     Municipality,
+    Tag,
 )
 from backend.db.session import get_db
 from backend.ingestion.guelph import ingest_meeting_from_url
@@ -224,6 +232,162 @@ def meetings_now_next(
     }
 
 
+@router.get("/api/{slug}/meetings/recent")
+def meetings_recent(
+    slug: str,
+    limit: int = Query(5, ge=1, le=20, description="Max meetings to return"),
+    db: Session = Depends(get_db),
+):
+    """Return the most recent meetings (past and upcoming), regardless of date."""
+    muni = _get_municipality(db, slug)
+
+    meetings = (
+        db.query(Meeting)
+        .options(joinedload(Meeting.agenda_items).joinedload(AgendaItem.tags))
+        .filter(Meeting.municipality_id == muni.id)
+        .order_by(Meeting.start_datetime.desc())
+        .all()
+    )
+
+    # Deduplicate due to joinedload
+    seen_ids = set()
+    unique_meetings = []
+    for m in meetings:
+        if m.id not in seen_ids:
+            seen_ids.add(m.id)
+            unique_meetings.append(m)
+        if len(unique_meetings) >= limit:
+            break
+
+    return {
+        "municipality": slug,
+        "meetings": [_serialize_meeting(m) for m in unique_meetings],
+    }
+
+
+@router.get("/api/{slug}/items/{item_id}")
+def item_detail(
+    slug: str,
+    item_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return the full detail for a single agenda item."""
+    muni = _get_municipality(db, slug)
+
+    item = (
+        db.query(AgendaItem)
+        .options(joinedload(AgendaItem.tags))
+        .join(Meeting)
+        .filter(
+            AgendaItem.id == item_id,
+            Meeting.municipality_id == muni.id,
+        )
+        .first()
+    )
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Agenda item not found")
+
+    meeting = item.meeting
+
+    return {
+        "id": item.id,
+        "item_number": item.item_number,
+        "title": item.title,
+        "summary": item.summary_text,
+        "raw_text": item.raw_text,
+        "section": item.section,
+        "tags": [t.name for t in item.tags],
+        "status": item.status.value if item.status else "pending",
+        "meeting_id": meeting.id,
+        "meeting_title": meeting.title,
+        "meeting_date": meeting.start_datetime.isoformat() if meeting.start_datetime else None,
+    }
+
+
+@router.get("/api/{slug}/meetings/search")
+def search_items(
+    slug: str,
+    q: Optional[str] = Query(None, description="Search keyword"),
+    tag: Optional[str] = Query(None, description="Filter by tag name"),
+    limit: int = Query(20, ge=1, le=50, description="Max results"),
+    db: Session = Depends(get_db),
+):
+    """Search agenda items by keyword and/or tag across all meetings."""
+    muni = _get_municipality(db, slug)
+
+    if not q and not tag:
+        return {"municipality": slug, "query": q, "tag": tag, "results": []}
+
+    query = (
+        db.query(AgendaItem)
+        .join(Meeting)
+        .options(joinedload(AgendaItem.tags), joinedload(AgendaItem.meeting))
+        .filter(Meeting.municipality_id == muni.id)
+    )
+
+    if q:
+        pattern = f"%{q}%"
+        query = query.filter(
+            AgendaItem.title.ilike(pattern) | AgendaItem.summary_text.ilike(pattern)
+        )
+
+    if tag:
+        query = query.filter(
+            AgendaItem.tags.any(Tag.name == tag)
+        )
+
+    items = query.order_by(Meeting.start_datetime.desc(), AgendaItem.item_number).limit(limit).all()
+
+    results = []
+    for item in items:
+        meeting = item.meeting
+        results.append({
+            "id": item.id,
+            "item_number": item.item_number,
+            "title": item.title,
+            "summary": item.summary_text,
+            "tags": [t.name for t in item.tags],
+            "section": item.section,
+            "meeting_title": meeting.title,
+            "meeting_date": meeting.start_datetime.isoformat() if meeting.start_datetime else None,
+            "meeting_id": meeting.id,
+        })
+
+    return {
+        "municipality": slug,
+        "query": q,
+        "tag": tag,
+        "results": results,
+    }
+
+
+@router.get("/api/{slug}/tags")
+def list_tags(
+    slug: str,
+    db: Session = Depends(get_db),
+):
+    """Return all tags with their agenda item counts for a municipality."""
+    muni = _get_municipality(db, slug)
+
+    ait = AgendaItemTag.__table__
+    results = (
+        db.query(Tag.name, func.count(ait.c.agenda_item_id))
+        .join(ait, Tag.id == ait.c.tag_id)
+        .join(AgendaItem, AgendaItem.id == ait.c.agenda_item_id)
+        .join(Meeting, Meeting.id == AgendaItem.meeting_id)
+        .filter(Meeting.municipality_id == muni.id)
+        .group_by(Tag.name)
+        .order_by(func.count(ait.c.agenda_item_id).desc())
+        .all()
+    )
+
+    return {
+        "municipality": slug,
+        "tags": [{"name": name, "count": count} for name, count in results],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Admin / ingestion endpoints
 # ---------------------------------------------------------------------------
@@ -246,4 +410,32 @@ def admin_ingest(
         }
     except Exception as e:
         logger.exception("Ingestion failed for %s", url)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/discover")
+def admin_discover(
+    municipality_slug: str = Query("guelph", description="Municipality slug"),
+    year: Optional[int] = Query(None, description="Year to discover (default: current)"),
+    db: Session = Depends(get_db),
+):
+    """Discover and ingest new meetings from eScribe."""
+    from backend.ingestion.guelph import discover_and_ingest
+
+    try:
+        meetings = discover_and_ingest(db, municipality_slug, year)
+        return {
+            "status": "ok",
+            "new_meetings": len(meetings),
+            "meetings": [
+                {
+                    "id": m.id,
+                    "title": m.title,
+                    "date": m.start_datetime.isoformat() if m.start_datetime else None,
+                }
+                for m in meetings
+            ],
+        }
+    except Exception as e:
+        logger.exception("Discovery failed")
         raise HTTPException(status_code=500, detail=str(e))
